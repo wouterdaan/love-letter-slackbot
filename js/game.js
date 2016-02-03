@@ -86,7 +86,7 @@ const shuffle = R.compose(_shuffle, R.clone);
 const isGameOver = function(gameState) {
     const deck = gameState.deck;
     const players = gameState.players;
-    const activePlayers = players.filter(R.whereEq({ stillInGame: true }));
+    const activePlayers = filterActivePlayers(players);
 
     return !deck.length || activePlayers.length === 1;
 };
@@ -101,3 +101,18 @@ const isMatchOver = function(gameState) {
              (numPlayers === 3 && maxPoints === 5) ||
              (numPlayers === 4 && maxPoints === 4);
 };
+
+
+//+ filterActivePlayers : [players] -> [players]
+const filterActivePlayers = R.filter(R.whereEq({ stillInGame: true }));
+
+//+ activePlayer : gameState -> player
+const activePlayer = R.compose(R.head, filterActivePlayers, R.prop('players'));
+
+// + processAction = username -> command -> args -> { publicMsg, privatemsg }
+exports.processAction = R.curry(function(username, command, args) {
+    return {
+        publicMsg: 'Boop',
+        privateMsg: ''
+    };
+});
