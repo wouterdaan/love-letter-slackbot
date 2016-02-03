@@ -16,7 +16,3 @@ const getUrl = function(path, params) {
 exports.getUserInfo = function(userId, callback) {
     client.get(getUrl('users.info', {user: userId}), callback);
 }
-
-exports.getUserInfo('U02MFCU5R', function(data, response) {
-    console.log(data);
-});

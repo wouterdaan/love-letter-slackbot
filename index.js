@@ -3,6 +3,7 @@
 const R = require('ramda');
 const Botkit = require('botkit');
 const Game = require('./js/game');
+const Slack = require('./js/slack')
 
 const controller = Botkit.slackbot();
 const bot = controller.spawn({
@@ -16,14 +17,16 @@ bot.startRTM(function(err,bot,payload) {
 
 controller.hears(["^!.+"], ["ambient"], function(bot, message) {
     const channel = message.channel;
-    const user = message.user;
+    const userId = message.user;
     const split = message.text.split(/\s+/);
     const command = R.head(split).substring(1);
     const params = R.drop(1, split);
 
-    const responses = Game.processAction(user, command, params);
-    if(responses.publicMsg) bot.reply(message, responses.publicMsg);
+    Slack.getUserInfo(userId, function(data, response) {
+        const user = (data.user) ? data.user.name : {}
+        if(user) {
+            const responses = Game.processAction(user, command, params);
+            if(responses.publicMsg) bot.reply(message, responses.publicMsg);
+        }
+    });
 });
-
-
-require('./js/game');
