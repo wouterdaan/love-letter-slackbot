@@ -1,0 +1,24 @@
+{
+  "name": "love-letter-slackbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "botkit": "0.0.5",
+    "ramda": "^0.19.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tylerjromeo/love-letter-slackbot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tylerjromeo/love-letter-slackbot/issues"
+  },
+  "homepage": "https://github.com/tylerjromeo/love-letter-slackbot#readme"
+}
