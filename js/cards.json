@@ -1,0 +1,50 @@
+[
+    {
+        "value": 1,
+        "name": "Gaurd",
+        "count": 5,
+        "description": "Name a non-Gaurd card and choose another player. If that player has that card, he or she is out of the round."
+    },
+    {
+        "value": 2,
+        "name": "Priest",
+        "count": 2,
+        "description": "Look at another player's hand."
+    },
+    {
+        "value": 3,
+        "name": "Baron",
+        "count": 2,
+        "description": "You and another player secretly compare hands. The player with the lower value is out of the round."
+    },
+    {
+        "value": 4,
+        "name": "Handmaid",
+        "count": 2,
+        "description": "Until your next turn, ignore all effects from other player's cards."
+    },
+    {
+        "value": 5,
+        "name": "Prince",
+        "count": 2,
+        "description": "Choose any player (inluding yourself) ato discard his or her hand and draw a new card."
+    },
+    {
+        "value": 6,
+        "name": "King",
+        "count": 1,
+        "description": "Trade hands with another player of your choice."
+    },
+    {
+        "value": 7,
+        "name": "Countess",
+        "count": 1,
+        "description": "If you have this card and the King or Prince in your hand, you must discard this card."
+    },
+    {
+        "value": 8,
+        "name": "Princess",
+        "count": 1,
+        "description": "If you discard this card, you are out of the round."
+    }
+]
