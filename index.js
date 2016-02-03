@@ -15,3 +15,6 @@ controller.hears(["keyword","^pattern$"],["direct_message","direct_mention","men
   // https://api.slack.com/events/message
   bot.reply(message,'You used a keyword!');
 });
+
+
+require('./js/game');
