@@ -12,10 +12,11 @@ const getUrl = function(path, params) {
     return host + path + '?token=' + token + R.compose(R.map(function(s) {return '&'+s}), R.map(R.join('=')), R.toPairs, R.defaultTo({}))(params)
 }
 
-exports.getUserInfo = function(userId) {
-    client.get(getUrl('users.info', {user: userId}), function (data, response) {
-        console.log(data)
-    });
+//takes in a slack user id, and a callback function(data, response)
+exports.getUserInfo = function(userId, callback) {
+    client.get(getUrl('users.info', {user: userId}), callback);
 }
 
-exports.getUserInfo('U02MFCU5R');
+exports.getUserInfo('U02MFCU5R', function(data, response) {
+    console.log(data);
+});
