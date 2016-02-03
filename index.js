@@ -1,6 +1,11 @@
-var Botkit = require('botkit');
-var controller = Botkit.slackbot();
-var bot = controller.spawn({
+'use strict';
+
+const R = require('ramda');
+const Botkit = require('botkit');
+const Game = require('./js/game');
+
+const controller = Botkit.slackbot();
+const bot = controller.spawn({
   token: "xoxb-20222523825-CKevtcZa4uer4hCOtdEb7iKB"
 })
 bot.startRTM(function(err,bot,payload) {
@@ -9,11 +14,15 @@ bot.startRTM(function(err,bot,payload) {
   }
 });
 
-controller.hears(["keyword","^pattern$"],["direct_message","direct_mention","mention","ambient"],function(bot,message) {
-  // do something to respond to message
-  // all of the fields available in a normal Slack message object are available
-  // https://api.slack.com/events/message
-  bot.reply(message,'You used a keyword!');
+controller.hears(["^!.+"], ["ambient"], function(bot, message) {
+    const channel = message.channel;
+    const user = message.user;
+    const split = message.text.split(/\s+/);
+    const command = R.head(split).substring(1);
+    const params = R.drop(1, split);
+
+    const responses = Game.processAction(user, command, params);
+    if(responses.publicMsg) bot.reply(message, responses.publicMsg);
 });
 
 
