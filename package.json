@@ -22,5 +22,6 @@
   "bugs": {
     "url": "https://github.com/tylerjromeo/love-letter-slackbot/issues"
   },
-  "homepage": "https://github.com/tylerjromeo/love-letter-slackbot#readme"
+  "homepage": "https://github.com/tylerjromeo/love-letter-slackbot#readme",
+  "engines" : { "node" : ">=5.0" }
 }
