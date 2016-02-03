@@ -5,6 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "botkit": "0.0.5",
+    "node-rest-client": "^1.8.0",
     "ramda": "^0.19.1",
     "shuffle-array": "^0.1.2"
   },
