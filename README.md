@@ -1,5 +1,9 @@
 # Love Letter Bot
 
+Slackbt to moderate playing [Love Letter](https://boardgamegeek.com/boardgame/129622/love-letter) in slack. The [rules](http://www.alderac.com/tempest/files/2012/09/Love_Letter_Rules_Final.pdf) are available online
+
+## Dev instructions
+
 `npm run dev` spins up a dev server that restarts when you save
 
 `npm start` spins up a normal server
