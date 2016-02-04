@@ -7,11 +7,6 @@ const _ = R.__;
 const Either = require('data.either');
 
 
-// =============================================================================
-// GAME STATE
-// =============================================================================
-let games = [];
-
 
 // =============================================================================
 // DEFAULT STATES
@@ -51,7 +46,7 @@ const genMessage = (username, msg) => {
     };
 };
 const pubMessage = msg => genMessage(null, msg);
-const privMessage = (username, msg) => genMessage(username, msg);
+const privMessage = R.curry((username, msg) => genMessage(username, msg));
 
 // =============================================================================
 // FUNCTIONS
@@ -60,7 +55,7 @@ const privMessage = (username, msg) => genMessage(username, msg);
 const setupMatch = R.curry(function(usernames, channel) {
     return genGame({
         channel: channel,
-        players: usernames.map(genUser)
+        players: usernames.map(u => genUser({ username: u }))
     });
 });
 
@@ -94,13 +89,10 @@ const burnCard = R.tail;
 //+ shuffle : [cards] -> [cards]
 const shuffle = R.compose(_shuffle, R.clone);
 
-//+ isGameOver : gameState -> boolean
-const isGameOver = function(gameState) {
-    const deck = gameState.deck;
-    const players = gameState.players;
-    const activePlayers = filterActivePlayers(players);
-
-    return !deck.length || activePlayers.length === 1;
+//+ isGameOver : game -> boolean
+const isGameOver = function(game) {
+    return !game.deck.length ||
+            getActivePlayers(game.players).length === 1;
 };
 
 //+ isMatchOver : gameState -> boolean
@@ -114,11 +106,14 @@ const isMatchOver = function(gameState) {
              (numPlayers === 4 && maxPoints === 4);
 };
 
-//+ filterActivePlayers : [players] -> [players]
-const filterActivePlayers = R.filter(R.whereEq({ stillInGame: true }));
+//+ getActivePlayers : gameState -> player
+const getActivePlayers = R.compose(
+    R.filter(R.whereEq({ stillInGame: true })),
+    R.prop('players')
+);
 
-//+ activePlayer : gameState -> player
-const activePlayer = R.compose(R.head, filterActivePlayers, R.prop('players'));
+//+ getActivePlayer : gameState -> player
+const getActivePlayer = R.compose(R.head, getActivePlayers);
 
 //+ getGame : channel -> Either pubMessage gameState
 const getGame = channel => {
@@ -128,8 +123,8 @@ const getGame = channel => {
         Either.Left(pubMessage('Game does not exist in this channel'));
 }
 
-//+ getUser : game -> username -> Either pubMessage user
-const getUser = R.curry((game, username) => {
+//+ getPlayer : game -> username -> Either pubMessage user
+const getPlayer = R.curry((username, game) => {
     var user = R.find(R.whereEq({ username: username }), game.players);
     return user ?
         Either.Right(user) :
@@ -141,7 +136,11 @@ const getUser = R.curry((game, username) => {
 // =============================================================================
 const cardToString = c => `(${c.value}) ${c.name}: ${c.description}`;
 
-const discardToString = g => `The last discarded card was ${cardToString(R.head(g.discard))}`;
+const discardToString = g =>
+    g.discard.length ?
+        `The last discarded card was ${cardToString(R.head(g.discard))}` :
+        `There are no cards in the discard pile`
+
 
 const handToString = hand => {
     return `
@@ -150,7 +149,7 @@ const handToString = hand => {
     `;
 };
 
-const deckToString = g => `There are ${g.deck.length} cards left`;
+const deckToString = g => `There are ${g.deck.length} cards left in the deck`;
 
 const playerToString = p => `${p.username}: ${p.gamesWon}`;
 
@@ -165,6 +164,7 @@ const actions = {
         return pubMessage(`Loooool, help?`);
     },
 
+    // This needs to be global and not an action
     // Either err game -> username -> channel -> usernames -> Either err [message]
     start: function(game, username, channel, usernames) {
         return game
@@ -177,7 +177,7 @@ const actions = {
                 const newGame = setupGame(setupMatch(usernames, channel));
                 games.push(newGame);
 
-                const crntPlayer = activePlayer(newGame);
+                const crntPlayer = getActivePlayer(newGame);
                 const handString = handToString(crntPlayer.hand);
 
                 return Either.Right([
@@ -189,29 +189,38 @@ const actions = {
 
     // Either err game -> username -> Either err privMessage
     look: function(game, username) {
-        const user = game.map(getUser)
+        const user = game.chain(getPlayer(username));
 
         return R.sequence(Either.Right, [
             user.map(R.compose(handToString, R.prop('hand'))),
             game.map(deckToString),
             game.map(discardToString)
-        ]).map(R.compose(privMessage, R.join('\n')));
+        ]).map(R.compose(privMessage(username), R.join('\n')));
     },
 
     // Either err game -> pubMessage
-    score: R.map(R.compose(R.join('\n'), R.map(playerToString), R.prop('players'))),
+    score: R.map(R.compose(pubMessage, R.join('\n'), R.map(playerToString), R.prop('players'))),
 
     // Either err game -> pubMessage
-    abort: R.map(function(game) {
-        games = R.filter(R.whereEq({ channel: channel }), games);
-        return pubMessage('Game disbanded.');
-    }),
+    abort: function(game, username, channel) {
+        return game.map(function(_) {
+            games = R.filter(R.whereEq({ channel: channel }), games);
+            return pubMessage('Game disbanded.');
+        });
+    },
 
     // Either err game -> pubMessage
     whosturn: R.map(function(game) {
-        const player = activePlayer(game);
+        const player = getActivePlayer(game);
         return pubMessage(`It is ${player.username}'s turn'`);
-    })
+    }),
+
+    // Either err game -> username -> pubMessage
+    discard: function(game, username) {
+        const user = game.chain(getPlayer(username));
+        const activeUser = game.map()
+        return game;
+    }
 };
 
 // =============================================================================
@@ -231,3 +240,14 @@ exports.processAction = R.curry(function(username, channel, command, args) {
 });
 
 exports.start = actions.start;
+
+
+// =============================================================================
+// GAME STATE
+// =============================================================================
+let games = [];
+
+games.push(setupGame(setupMatch([
+    'tyler',
+    'kevinwelcher'
+], 'C0L6FJ4F3')))
