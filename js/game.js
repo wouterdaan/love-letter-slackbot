@@ -128,15 +128,12 @@ const getGame = channel => {
         Either.Left(pubMessage('Game does not exist in this channel'));
 }
 
-//+ getUser : channel -> username -> Either pubMessage user
-const getUser = R.curry((channel, username) => {
-    return getGame(channel)
-        .chain(function(game) {
-            var user = R.find(R.whereEq({ username: username }), game.players);
-            return user ?
-                Either.Right(user) :
-                Either.Left(pubMessage(`@${username} you are not a part of the game in this channel`))
-        })
+//+ getUser : game -> username -> Either pubMessage user
+const getUser = R.curry((game, username) => {
+    var user = R.find(R.whereEq({ username: username }), game.players);
+    return user ?
+        Either.Right(user) :
+        Either.Left(pubMessage(`@${username} is not in this game`))
 });
 
 // =============================================================================
@@ -155,21 +152,22 @@ const handToString = hand => {
 
 const deckToString = g => `There are ${g.deck.length} cards left`;
 
-const playerToString = p => '';
+const playerToString = p => `${p.username}: ${p.gamesWon}`;
 
 const gameToString = g => '';
-
 
 // =============================================================================
 // ACTIONS
 // =============================================================================
 const actions = {
+    // _ -> Either _ pubMessage
     help: function() {
         return pubMessage(`Loooool, help?`);
     },
 
-    start: function(username, channel, usernames) {
-        return getGame(channel)
+    // Either err game -> username -> channel -> usernames -> Either err [message]
+    start: function(game, username, channel, usernames) {
+        return game
             .bimap(
                 R.always(true),
                 R.always(pubMessage('A game already exists in this channel'))
@@ -186,18 +184,18 @@ const actions = {
                     pubMessage(`The game has started! @${crntPlayer.username}, your up first.`),
                     privMessage(crntPlayer.username, `Your hand is ${handString}`)
                 ])
-            })
+            });
     },
 
-    look: function(username, channel) {
-        const game = getGame(channel);
-        const user = getUser(channel, username);
+    // Either err game -> username -> Either err privMessage
+    look: function(game, username) {
+        const user = game.map(getUser)
 
         return R.sequence(Either.Right, [
             user.map(R.compose(handToString, R.prop('hand'))),
             game.map(deckToString),
             game.map(discardToString)
-        ]).map(R.compose(pubMessage, R.join('\n')));
+        ]).map(R.compose(privMessage, R.join('\n')));
     },
 
     // Either err game -> pubMessage
