@@ -31,7 +31,7 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
     Slack.getUserInfo(userId, function(data, response) {
         const user = (data.user) ? data.user.name : null
         if(user) {
-            const responses = Game.processAction(user, command, params);
+            const responses = Game.processAction(user, channel, command, params);
             if(responses.publicMsg) bot.reply(message, responses.publicMsg);
         } else {
             reportError(bot, message.channel, "couldn't get a user from slack");

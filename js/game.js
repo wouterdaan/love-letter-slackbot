@@ -199,17 +199,33 @@ const actions = {
             game.map(discardToString)
         ]).map(R.compose(pubMessage, R.join('\n')));
     },
+
+    // Either err game -> pubMessage
+    score: R.map(R.compose(R.join('\n'), R.map(playerToString), R.prop('players'))),
+
+    // Either err game -> pubMessage
+    abort: R.map(function(game) {
+        games = R.filter(R.whereEq({ channel: channel }), games);
+        return pubMessage('Game disbanded.');
+    }),
+
+    // Either err game -> pubMessage
+    whosturn: R.map(function(game) {
+        const player = activePlayer(game);
+        return pubMessage(`It is ${player.username}'s turn'`);
+    })
 };
 
 // =============================================================================
 // EXPORTS
 // =============================================================================
-// + processAction = username -> command -> args -> { pubMessage, privMessage }
-exports.processAction = R.curry(function(username, command, args) {
-    var action = actions[command];
+// + processAction = username -> channel -> command -> args -> { pubMessage, privMessage }
+exports.processAction = R.curry(function(username, channel, command, args) {
+    const action = actions[command];
+    const _args = [getGame(channel), username, channel, ...(args || [])];
 
-    var res = action ? action.apply(null, args || []) :
-                       pubMessage('No action found, Boop!');
+    const res = action ? action.apply(null, _args) :
+                         pubMessage('No action found, Boop!');
 
     console.log(res);
 
