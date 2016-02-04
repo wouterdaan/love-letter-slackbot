@@ -5,10 +5,12 @@ const R = require('ramda');
 const cards = require('./cards.json');
 const _ = R.__;
 
+
 // =============================================================================
 // GAME STATE
 // =============================================================================
 let games = [];
+
 
 // =============================================================================
 // DEFAULT STATES
@@ -40,6 +42,19 @@ const defaultGameState = {
 // genGame = gameState -> gameState
 const genGame = R.merge(defaultGameState);
 
+//+ genMessage : string -> ?[username, msg] -> Message
+const genMessage = (pub, priv) => {
+    let message = {
+        pubMessage: pub,
+        privMessage: []
+    };
+
+    if (priv) message.privMessage = [priv];
+
+    return message;
+};
+const pubMessage = msg => genMessage(msg);
+const privMessage = (username, msg) => genMessage('', [username, msg]);
 
 // =============================================================================
 // FUNCTIONS
@@ -102,17 +117,111 @@ const isMatchOver = function(gameState) {
              (numPlayers === 4 && maxPoints === 4);
 };
 
-
 //+ filterActivePlayers : [players] -> [players]
 const filterActivePlayers = R.filter(R.whereEq({ stillInGame: true }));
 
 //+ activePlayer : gameState -> player
 const activePlayer = R.compose(R.head, filterActivePlayers, R.prop('players'));
 
-// + processAction = username -> command -> args -> { publicMsg, privatemsg }
-exports.processAction = R.curry(function(username, command, args) {
-    return {
-        publicMsg: 'Boop',
-        privateMsg: ''
-    };
+//+ getGame : channel -> gameState
+const getGame = channel => R.find(R.whereEq({ channel: channel }), games);
+
+//+ getUser : gameState -> username -> user
+const getUser = R.curry((gameState, username) => {
+    return R.find(R.whereEq({ username: username }), gameState.players);
 });
+
+//+ isInvalidUser : username -> channel -> undefined || pubMessage
+const isInvalidUser = R.curry((username, channel) => {
+    const game = getGame(channel);
+    if (!game) return pubMessage('No active game in this channel');
+
+    const user = getUser(game, username);
+    if (!user) return pubMessage('You are not part of the game in this channel');
+});
+
+// =============================================================================
+// TO STRINGS
+// =============================================================================
+const cardToString = c => `(${c.value}) ${c.name}: ${c.description}`;
+
+const discardToString = g => `The last discarded card was ${cardToString(R.head(g.discard))}`;
+
+const handToString = hand => {
+    return `
+        Your hand is:
+        ${hand.map(cardToString).join('\n')}
+    `;
+};
+
+const deckToString = g => `There are ${g.deck.length} cards left`;
+
+const playerToString = p => '';
+
+const gameToString = g => '';
+
+
+// =============================================================================
+// ACTIONS
+// =============================================================================
+const actions = {
+    help: function() {
+        return pubMessage(`Loooool, help?`);
+    },
+
+    start: function(username, channel, usernames) {
+        const activeGame = getGame(channel);
+        if (activeGame)
+            return pubMessage('A game already exists in this channel');
+
+        const newGame = setupGame(setupMatch(usernames, channel));
+
+        games.push(newGame);
+
+        const crntPlayer = activePlayer(newGame);
+        const handString = handToString(crntPlayer.hand);
+
+        return genMessage(
+            `The game has started! @${crntPlayer.username}, your up first.`,
+            [crntPlayer.username, `Your hand is ${handString}`]
+        )
+    },
+
+    look: function(username, channel) {
+        const game = getGame(channel);
+
+        if (!game)
+            return pubMessage('No game found for this channel');
+
+        if (isInvalidUser(username, channel))
+            return isInvalidUser(username, channel);
+
+        const user = getUser(game, username);
+
+        let res = [
+            handString(user.hand),
+            deckToString(game),
+            discardToString(game)
+        ].join('\n');
+
+        return privMessage(username, res);
+    },
+
+};
+
+// =============================================================================
+// EXPORTS
+// =============================================================================
+// + processAction = username -> command -> args -> { pubMessage, privMessage }
+exports.processAction = R.curry(function(username, command, args) {
+    var action = actions[command];
+
+    var res = action ? action.apply(null, args || []) :
+                       pubMessage('No action found, Boop!');
+
+    console.log(res);
+
+    return res;
+});
+
+exports.start = actions.start;
