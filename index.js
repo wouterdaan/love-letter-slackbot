@@ -8,7 +8,13 @@ const Slack = require('./js/slack')
 const controller = Botkit.slackbot();
 const bot = controller.spawn({
   token: "xoxb-20222523825-CKevtcZa4uer4hCOtdEb7iKB"
-})
+});
+
+const reportError = function(bot, channel, errorMessage) {
+    bot.say({channel: channel, text: "Something didn't work, try that command again?"});
+    if(errorMessage) bot.say({channel: channel, text: "Error: " + errorMessage});
+}
+
 bot.startRTM(function(err,bot,payload) {
   if (err) {
     throw new Error('Could not connect to Slack');
@@ -23,10 +29,12 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
     const params = R.drop(1, split);
 
     Slack.getUserInfo(userId, function(data, response) {
-        const user = (data.user) ? data.user.name : {}
+        const user = (data.user) ? data.user.name : null
         if(user) {
             const responses = Game.processAction(user, command, params);
             if(responses.publicMsg) bot.reply(message, responses.publicMsg);
+        } else {
+            reportError(bot, message.channel, "couldn't get a user from slack");
         }
     });
 });
