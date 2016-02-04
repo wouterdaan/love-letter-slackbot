@@ -4,6 +4,7 @@ const _shuffle = require('shuffle-array');
 const R = require('ramda');
 const cards = require('./cards.json');
 const _ = R.__;
+const Either = require('data.either');
 
 
 // =============================================================================
@@ -43,18 +44,14 @@ const defaultGameState = {
 const genGame = R.merge(defaultGameState);
 
 //+ genMessage : string -> ?[username, msg] -> Message
-const genMessage = (pub, priv) => {
-    let message = {
-        pubMessage: pub,
-        privMessage: []
+const genMessage = (username, msg) => {
+    return {
+        username: username,
+        msg: msg
     };
-
-    if (priv) message.privMessage = [priv];
-
-    return message;
 };
-const pubMessage = msg => genMessage(msg);
-const privMessage = (username, msg) => genMessage('', [username, msg]);
+const pubMessage = msg => genMessage(null, msg);
+const privMessage = (username, msg) => genMessage(username, msg);
 
 // =============================================================================
 // FUNCTIONS
@@ -123,21 +120,23 @@ const filterActivePlayers = R.filter(R.whereEq({ stillInGame: true }));
 //+ activePlayer : gameState -> player
 const activePlayer = R.compose(R.head, filterActivePlayers, R.prop('players'));
 
-//+ getGame : channel -> gameState
-const getGame = channel => R.find(R.whereEq({ channel: channel }), games);
+//+ getGame : channel -> Either pubMessage gameState
+const getGame = channel => {
+    var game = R.find(R.whereEq({ channel: channel }), games);
+    return game ?
+        Either.Right(game) :
+        Either.Left(pubMessage('Game does not exist in this channel'));
+}
 
-//+ getUser : gameState -> username -> user
-const getUser = R.curry((gameState, username) => {
-    return R.find(R.whereEq({ username: username }), gameState.players);
-});
-
-//+ isInvalidUser : username -> channel -> undefined || pubMessage
-const isInvalidUser = R.curry((username, channel) => {
-    const game = getGame(channel);
-    if (!game) return pubMessage('No active game in this channel');
-
-    const user = getUser(game, username);
-    if (!user) return pubMessage('You are not part of the game in this channel');
+//+ getUser : channel -> username -> Either pubMessage user
+const getUser = R.curry((channel, username) => {
+    return getGame(channel)
+        .chain(function(game) {
+            var user = R.find(R.whereEq({ username: username }), game.players);
+            return user ?
+                Either.Right(user) :
+                Either.Left(pubMessage(`@${username} you are not a part of the game in this channel`))
+        })
 });
 
 // =============================================================================
@@ -170,43 +169,36 @@ const actions = {
     },
 
     start: function(username, channel, usernames) {
-        const activeGame = getGame(channel);
-        if (activeGame)
-            return pubMessage('A game already exists in this channel');
+        return getGame(channel)
+            .bimap(
+                R.always(true),
+                R.always(pubMessage('A game already exists in this channel'))
+            )
+            .swap()
+            .chain(() => {
+                const newGame = setupGame(setupMatch(usernames, channel));
+                games.push(newGame);
 
-        const newGame = setupGame(setupMatch(usernames, channel));
+                const crntPlayer = activePlayer(newGame);
+                const handString = handToString(crntPlayer.hand);
 
-        games.push(newGame);
-
-        const crntPlayer = activePlayer(newGame);
-        const handString = handToString(crntPlayer.hand);
-
-        return genMessage(
-            `The game has started! @${crntPlayer.username}, your up first.`,
-            [crntPlayer.username, `Your hand is ${handString}`]
-        )
+                return Either.Right([
+                    pubMessage(`The game has started! @${crntPlayer.username}, your up first.`),
+                    privMessage(crntPlayer.username, `Your hand is ${handString}`)
+                ])
+            })
     },
 
     look: function(username, channel) {
         const game = getGame(channel);
+        const user = getUser(channel, username);
 
-        if (!game)
-            return pubMessage('No game found for this channel');
-
-        if (isInvalidUser(username, channel))
-            return isInvalidUser(username, channel);
-
-        const user = getUser(game, username);
-
-        let res = [
-            handString(user.hand),
-            deckToString(game),
-            discardToString(game)
-        ].join('\n');
-
-        return privMessage(username, res);
+        return R.sequence(Either.Right, [
+            user.map(R.compose(handToString, R.prop('hand'))),
+            game.map(deckToString),
+            game.map(discardToString)
+        ]).map(R.compose(pubMessage, R.join('\n')));
     },
-
 };
 
 // =============================================================================
