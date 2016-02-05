@@ -59,10 +59,13 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
         case 'join':
             bot.reply(message, Slack.addPlayer(bot, channel, message).merge());
             break;
+        case 'begin':
+            Slack.getHandles(channel).chain(function(handles) {
+                return Game.processAction(R.head(handles), channel, command, handles);
+            }).bimap(R.curry(sendMessages)(bot, channel), R.curry(sendMessages)(bot, channel));
         default:
             Slack.getHandle(channel, userId).chain(function(handle) {
-                console.log("hoba")
-                return Game.processAction(handle, channel, command, params);
+                return Game.processAction(handle, channel, 'start', params);
             }).bimap(R.curry(sendMessages)(bot, channel), R.curry(sendMessages)(bot, channel));
     }
 });

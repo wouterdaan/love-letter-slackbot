@@ -117,3 +117,7 @@ exports.getHandle = function(channel, userId) {
         return (player) ? Either.Right(player.handle) : Either.Left([pubMessage("Player not found")]);
     });
 }
+
+exports.getHandles = function(channel) {
+    return getGame(channel).map(R.compose(R.map(R.prop('handle')), R.prop('players')));
+}
