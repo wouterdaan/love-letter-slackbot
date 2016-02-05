@@ -57,11 +57,15 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
             Slack.addPlayer(bot, channel, message, function(result) { result.bimap(send, send) });
             break;
         case 'begin':
-            Slack.getHandles(channel)
-                .chain(function(handles) {
-                    return Game.processAction(R.head(handles), channel, 'start', handles);
-                })
-                .bimap(send, send);
+            if(Slack.okToStartGame(channel)) {
+                Slack.getHandles(channel)
+                    .chain(function(handles) {
+                        return Game.processAction(R.head(handles), channel, 'start', handles);
+                    })
+                    .bimap(send, send);
+            } else {
+                bot.reply(message, 'Game must have 2-4 players');
+            }
             break;
         case 'help':
             Game.processAction('', channel, command, params).bimap(send, send);
