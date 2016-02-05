@@ -53,9 +53,6 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
             Slack.newGame(channel);
             bot.reply(message, 'Game created, say !join to join');
             break;
-        case 'check':
-            console.log(Slack.checkState());
-            break;
         case 'join':
             Slack.addPlayer(bot, channel, message, function(result) { result.bimap(send, send) });
             break;

@@ -65,10 +65,6 @@ const getUserInfoFromSlack = function(userId, callback) {
     client.get(getUrl('users.info', {user: userId}), callback);
 }
 
-exports.checkState = function() {
-    return games;
-}
-
 exports.newGame = function(channel) {
     games = R.append(R.merge(defaultGameState, {channel: channel}))(games)
 }
