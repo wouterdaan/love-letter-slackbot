@@ -255,7 +255,11 @@ exports.processAction = R.curry(function(username, channel, command, args) {
 
     console.log(res);
 
-    return res;
+    const arrayify = val => R.isArrayLike(val) ? val : [val];
+
+    return R.isArrayLike(res) ? Either.Right(res) : // An array of messages
+                      res.msg ? Either.Right(res) : // A message
+                                res.bimap(arrayify, arrayify);
 });
 
 exports.start = actions.start;
