@@ -24,8 +24,7 @@ const defaultGameState = {
 
 const defaultPlayerState = {
     id: '',
-    handle: '',
-    conversation: null //the bot's conversation object for sending dms
+    handle: ''
 }
 
 
@@ -84,30 +83,30 @@ exports.addPlayer = function(bot, channel, message) {
         getUserInfoFromSlack(message.user, function(data, response) {
             const user = (data.user) ? data.user.name : null
             if(user) {
-                bot.startPrivateConversation(message, function(err, conversation) {
-                    if(err) {
-                        bot.say({channel: channel, text: "couldn't start a dm"});
-                    } else {
-                        const game = games[gameIndex];
-                        games = R.adjust(R.merge(_, { players: R.append(R.merge(defaultPlayerState, { id: message.user, handle: user, conversation: conversation }), game.players) }), gameIndex, games);
-                        exports.sendDm(channel, user, "you're in!");
-                    }
-                });
+                const game = games[gameIndex];
+                games = R.adjust(R.merge(_, { players: R.append(R.merge(defaultPlayerState, { id: message.user, handle: user }), game.players) }), gameIndex, games);
+                exports.sendDm(bot, channel, user, message, "You're in!");
             } else {
-                bot.say({channel: channel, text: "couldn't find user"});
+                bot.say({channel: channel, text: "Couldn't find user"});
             }
         });
         return "Adding User..."
     });
 }
 
-exports.sendDm = function(channel, handle, message) {
+exports.sendDm = function(bot, channel, handle, slackMessage, message) {
     return getUser(channel, handle).bimap(function(error) {
         return error;
     },
     function(user) {
-        user.conversation.say(message);
-        return "Dm sent";
+        bot.startPrivateConversation(slackMessage, function(err, conversation) {
+            if(err) {
+                console.log(err);
+                bot.say({channel: channel, text: "Couldn't start a dm with " + user.handle});
+            } else {
+                conversation.say(message);
+            }
+        });
     })
 }
 

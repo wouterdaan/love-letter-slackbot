@@ -21,16 +21,16 @@ const sayPublic = function(bot, message) {
     }
 }
 
-const sendMessage = function(bot, channel, message) {
+const sendMessage = function(bot, channel, slackMessage, message) {
     if(message.username) {
-        Slack.sendDm(channel, message.username, message.msg);
+        Slack.sendDm(bot, channel, message.username, slackMessage, message.msg);
     } else {
         bot.say({ channel: channel, text: message.msg });
     }
 }
 
-const sendMessages = R.curry(function(bot, channel, messages) {
-    R.forEach(function(m) { sendMessage(bot, channel, m) }, messages);
+const sendMessages = R.curry(function(bot, channel, slackMessage, messages) {
+    R.forEach(function(m) { sendMessage(bot, channel, slackMessage, m) }, messages);
 })
 
 bot.startRTM(function(err,bot,payload) {
@@ -46,7 +46,7 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
     const command = R.head(split).substring(1);
     const params = R.drop(1, split);
 
-    const send = sendMessages(bot, channel);
+    const send = sendMessages(bot, channel, message);
 
     switch(command) {
         case 'start':
