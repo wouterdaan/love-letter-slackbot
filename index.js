@@ -22,8 +22,6 @@ const sayPublic = function(bot, message) {
 }
 
 const sendMessage = function(bot, channel, message) {
-    console.log("SENDING")
-    console.log(message)
     if(message.username) {
         Slack.sendDm(channel, message.user, message.msg);
     } else {
