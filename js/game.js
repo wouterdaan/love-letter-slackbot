@@ -127,6 +127,8 @@ const getPlayer = R.curry((username, game) => {
         Either.Left(pubMessage(`@${username} is not in this game`))
 });
 
+const cardPred = R.curry((val, card) => card.value == val || card.name == val);
+
 // =============================================================================
 // TO STRINGS
 // =============================================================================
@@ -178,7 +180,7 @@ const actions = {
 
                 return Either.Right([
                     pubMessage(`The game has started! @${crntPlayer.username}, your up first.`),
-                    privMessage(crntPlayer.username, `Your hand is ${handString}`)
+                    privMessage(crntPlayer.username, handString)
                 ])
             });
     },
@@ -212,41 +214,58 @@ const actions = {
     }),
 
     // Either err game -> username -> pubMessage
-    discard: function(game, username) {
+    discard: function(game, username, channel, args) {
         const player = game.chain(getPlayer(username));
         const activePlayer = game.map(getActivePlayer)
 
-        const isSamePlayer = R.lift((p1, p2) => {
-            console.log(p1.username, p2.username, p1 === p2);
-             return p1 === p2 ?
-                Either.Right(p1) :
-                Either.Left(pubMessage('It is not your turn yet'))
-        });
+        const selectedCard = player.chain(R.compose(
+            (c) => !!c ? Either.Right(c) : Either.Left(pubMessage('Please supply a card name or value to discard')),
+            R.find(cardPred(args[0])),
+            R.prop('hand')
+        ));
 
-        console.log(isSamePlayer(player, activePlayer));
+        const isSamePlayer = player.isEqual(activePlayer) ?
+                Either.Right(null) :
+                Either.Left(pubMessage('It is not your turn yet'));
 
-        // const isSamePlayer = R.lift((p1, p2) =>
-        //      p1 === p2 ?
-        //         Either.Right(p1) :
-        //         Either.Left(pubMessage('It is not your turn yet')));
+        const hasPendingAction = game.chain((g) =>
+            !g.pendingAction ?
+                Either.Right(null) :
+                Either.Left(pubMessage('There is a pending card that needs to be acted on')));
 
-        return isSamePlayer(player, activePlayer)
-            .map(R.always(pubMessage('Nice, it is your turn!')))
+        return R.sequence(Either.Right, [
+            game,
+            selectedCard,
+            isSamePlayer,
+            hasPendingAction
+        ])
+        .map(() => {
+            let messages = [
+                pubMessage(`Discarding a card ${selectedCard.merge().name}`)
+            ];
+
+            return messages;
+        })
     }
+};
+
+const cardActions = {
+
 };
 
 // =============================================================================
 // EXPORTS
 // =============================================================================
 // + processAction = username -> channel -> command -> args -> { pubMessage, privMessage }
-exports.processAction = R.curry(function(username, channel, command, args) {
+exports.processAction = R.curry(function(username, channel, command /*, ...args */) {
+    const args = Array.prototype.slice.call(arguments, 3);
     const action = actions[command];
-    const _args = [getGame(channel), username, channel, ...(args || [])];
+    const _args = [getGame(channel), username, channel, ...args];
 
     const res = action ? action.apply(null, _args) :
                          pubMessage('No action found, Boop!');
 
-    console.log(res);
+    // console.log(res);
 
     const arrayify = val => R.isArrayLike(val) ? val : [val];
 
@@ -262,9 +281,3 @@ exports.start = actions.start;
 // GAME STATE
 // =============================================================================
 let games = [];
-
-// games.push(setupGame(setupMatch([
-//     'tyler',
-//     'kevinwelcher',
-//     'trevor'
-// ], 'C0L6FJ4F3')))

@@ -23,15 +23,15 @@ const sayPublic = function(bot, message) {
 
 const sendMessage = function(bot, channel, message) {
     if(message.username) {
-        Slack.sendDm(channel, message.user, message.msg);
+        Slack.sendDm(channel, message.username, message.msg);
     } else {
         bot.say({ channel: channel, text: message.msg });
     }
 }
 
-const sendMessages = function(bot, channel, messages) {
+const sendMessages = R.curry(function(bot, channel, messages) {
     R.forEach(function(m) { sendMessage(bot, channel, m) }, messages);
-}
+})
 
 bot.startRTM(function(err,bot,payload) {
   if (err) {
@@ -46,6 +46,8 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
     const command = R.head(split).substring(1);
     const params = R.drop(1, split);
 
+    const send = sendMessages(bot, channel);
+
     switch(command) {
         case 'start':
             Slack.newGame(channel);
@@ -58,12 +60,17 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
             bot.reply(message, Slack.addPlayer(bot, channel, message).merge());
             break;
         case 'begin':
-            Slack.getHandles(channel).chain(function(handles) {
-                return Game.processAction(R.head(handles), channel, command, handles);
-            }).bimap(R.curry(sendMessages)(bot, channel), R.curry(sendMessages)(bot, channel));
+            Slack.getHandles(channel)
+                .chain(function(handles) {
+                    return Game.processAction(R.head(handles), channel, 'start', handles);
+                })
+                .bimap(send, send);
+            break;
         default:
-            Slack.getHandle(channel, userId).chain(function(handle) {
-                return Game.processAction(handle, channel, 'start', params);
-            }).bimap(R.curry(sendMessages)(bot, channel), R.curry(sendMessages)(bot, channel));
+            Slack.getHandle(channel, userId)
+                .chain(function(handle) {
+                    return Game.processAction(handle, channel, command, params);
+                })
+                .bimap(send, send);
     }
 });
