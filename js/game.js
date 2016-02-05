@@ -159,7 +159,7 @@ const gameToString = g => '';
 const actions = {
     // _ -> Either _ pubMessage
     help: function() {
-        return pubMessage(`Loooool, help?`);
+        return pubMessage(`https://github.com/tylerjromeo/love-letter-slackbot/blob/master/README.md`);
     },
 
     // This needs to be global and not an action

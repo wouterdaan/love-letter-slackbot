@@ -66,6 +66,9 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
                 })
                 .bimap(send, send);
             break;
+        case 'help':
+            Game.processAction('', channel, command, params).bimap(send, send);
+            break;
         default:
             Slack.getHandle(channel, userId)
                 .chain(function(handle) {
