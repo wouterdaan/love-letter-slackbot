@@ -61,15 +61,18 @@ const setupMatch = R.curry(function(usernames, channel) {
 
 //+ setupGame : gameState -> gameState
 const setupGame = R.curry(function(gameState) {
-    let deck = R.compose(burnCard, shuffle)(defaultDeck);
+    // TODO add shuffle
+    // let deck = R.compose(burnCard, shuffle)(defaultDeck);
+    let deck = R.compose(burnCard)(defaultDeck);
 
     let players = R.compose(
         R.map(R.merge(_, {
             stillInGame: true,
             isProtected: false,
             hand: [deck.shift()]
-        })),
-        shuffle
+        }))
+        // TODO: Add this back in after testing
+        // shuffle
     )(gameState.players)
 
     return R.merge(
@@ -217,9 +220,25 @@ const actions = {
 
     // Either err game -> username -> pubMessage
     discard: function(game, username) {
-        const user = game.chain(getPlayer(username));
-        const activeUser = game.map()
-        return game;
+        const player = game.chain(getPlayer(username));
+        const activePlayer = game.map(getActivePlayer)
+
+        const isSamePlayer = R.lift((p1, p2) => {
+            console.log(p1.username, p2.username, p1 === p2);
+             return p1 === p2 ?
+                Either.Right(p1) :
+                Either.Left(pubMessage('It is not your turn yet'))
+        });
+
+        console.log(isSamePlayer(player, activePlayer));
+
+        // const isSamePlayer = R.lift((p1, p2) =>
+        //      p1 === p2 ?
+        //         Either.Right(p1) :
+        //         Either.Left(pubMessage('It is not your turn yet')));
+
+        return isSamePlayer(player, activePlayer)
+            .map(R.always(pubMessage('Nice, it is your turn!')))
     }
 };
 
@@ -249,5 +268,6 @@ let games = [];
 
 games.push(setupGame(setupMatch([
     'tyler',
-    'kevinwelcher'
+    'kevinwelcher',
+    'trevor'
 ], 'C0L6FJ4F3')))
