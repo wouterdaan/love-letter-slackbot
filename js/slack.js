@@ -77,21 +77,24 @@ exports.endGame = function(channel) {
     games = R.reject(R.propEq('channel', channel))(games)
 }
 
-//TODO: KEVIN HALP. THIS FUNCTION IS OUT OF CONTROL. NEEDS MONADS DEPERATELY.
-exports.addPlayer = function(bot, channel, message) {
-    return getGameIndex(channel).map(function(gameIndex) {
-        getUserInfoFromSlack(message.user, function(data, response) {
-            const user = (data.user) ? data.user.name : null
-            if(user) {
-                const game = games[gameIndex];
-                games = R.adjust(R.merge(_, { players: R.append(R.merge(defaultPlayerState, { id: message.user, handle: user }), game.players) }), gameIndex, games);
-                exports.sendDm(bot, channel, user, message, "You're in!");
-            } else {
-                bot.say({channel: channel, text: "Couldn't find user"});
-            }
-        });
-        return "Adding User..."
-    });
+// + processAction = slackbot -> channel -> slackMessage -> callback (function(response:Either)) -> null
+exports.addPlayer = function(bot, channel, message, callback) {
+    getGameIndex(channel).bimap(function(error) {
+            callback(Either.Left(error));
+        },
+        function(gameIndex) {
+            getUserInfoFromSlack(message.user, function(data, response) {
+                const user = (data.user) ? data.user.name : null
+                if(user) {
+                    const game = games[gameIndex];
+                    games = R.adjust(R.merge(_, { players: R.append(R.merge(defaultPlayerState, { id: message.user, handle: user }), game.players) }), gameIndex, games);
+                    callback(Either.Right([privMessage(user, "You're in!")]));
+                } else {
+                    callback(Either.Left([pubMessage("Couldn't find user " + user)]));
+                }
+            });
+        }
+    );
 }
 
 exports.sendDm = function(bot, channel, handle, slackMessage, message) {

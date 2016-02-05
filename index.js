@@ -57,7 +57,7 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
             console.log(Slack.checkState());
             break;
         case 'join':
-            bot.reply(message, Slack.addPlayer(bot, channel, message).merge());
+            Slack.addPlayer(bot, channel, message, function(result) { result.bimap(send, send) });
             break;
         case 'begin':
             Slack.getHandles(channel)
