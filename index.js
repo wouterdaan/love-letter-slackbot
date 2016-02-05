@@ -15,6 +15,26 @@ const reportError = function(bot, channel, errorMessage) {
     if(errorMessage) bot.say({channel: channel, text: "Error: " + errorMessage});
 }
 
+const sayPublic = function(bot, message) {
+    return function(text) {
+        bot.reply(message, text);
+    }
+}
+
+const sendMessage = function(bot, channel, message) {
+    console.log("SENDING")
+    console.log(message)
+    if(message.username) {
+        Slack.sendDm(channel, message.user, message.msg);
+    } else {
+        bot.say({ channel: channel, text: message.msg });
+    }
+}
+
+const sendMessages = function(bot, channel, messages) {
+    R.forEach(function(m) { sendMessage(bot, channel, m) }, messages);
+}
+
 bot.startRTM(function(err,bot,payload) {
   if (err) {
     throw new Error('Could not connect to Slack');
@@ -29,22 +49,20 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
     const params = R.drop(1, split);
 
     switch(command) {
-        case "start":
+        case 'start':
             Slack.newGame(channel);
-            bot.reply(message, "Game created, say !join to join");
+            bot.reply(message, 'Game created, say !join to join');
             break;
-        case "check":
+        case 'check':
             console.log(Slack.checkState());
             break;
+        case 'join':
+            bot.reply(message, Slack.addPlayer(bot, channel, message).merge());
+            break;
         default:
-            Slack.getUserInfo(userId, function(data, response) {
-            const user = (data.user) ? data.user.name : null
-            if(user) {
-                const responses = Game.processAction(user, channel, command, params);
-                if(responses.publicMsg) bot.reply(message, responses.publicMsg);
-            } else {
-                reportError(bot, message.channel, "couldn't get a user from slack");
-            }
-        });
+            Slack.getHandle(channel, userId).chain(function(handle) {
+                console.log("hoba")
+                return Game.processAction(handle, channel, command, params);
+            }).bimap(R.curry(sendMessages)(bot, channel), R.curry(sendMessages)(bot, channel));
     }
 });

@@ -38,15 +38,8 @@ const defaultGameState = {
 // genGame = gameState -> gameState
 const genGame = R.merge(defaultGameState);
 
-//+ genMessage : string -> ?[username, msg] -> Message
-const genMessage = (username, msg) => {
-    return {
-        username: username,
-        msg: msg
-    };
-};
-const pubMessage = msg => genMessage(null, msg);
-const privMessage = R.curry((username, msg) => genMessage(username, msg));
+const pubMessage = require('./messages').pubMessage;
+const privMessage = require('./messages').privMessage;
 
 // =============================================================================
 // FUNCTIONS
@@ -258,7 +251,7 @@ exports.processAction = R.curry(function(username, channel, command, args) {
     const arrayify = val => R.isArrayLike(val) ? val : [val];
 
     return R.isArrayLike(res) ? Either.Right(res) :
-                      res.msg ? Either.Right(arrayify(res)) : 
+                      res.msg ? Either.Right(arrayify(res)) :
                                 res.bimap(arrayify, arrayify);
 });
 

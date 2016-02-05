@@ -28,16 +28,20 @@ const defaultPlayerState = {
     conversation: null //the bot's conversation object for sending dms
 }
 
+
+const pubMessage = require('./messages').pubMessage;
+const privMessage = require('./messages').privMessage;
+
 //gets an individual game from the state
 const getGame = function(channel) {
     const game = R.find(R.propEq('channel', channel))(games);
-    return (game) ? Either.Right(game) : Either.Left("Game not found");
+    return (game) ? Either.Right(game) : Either.Left([pubMessage("Game not found")]);
 }
 
 //gets an individual game from the state
 const getGameIndex = function(channel) {
     const gameIndex = R.findIndex(R.propEq('channel', channel))(games);
-    return (gameIndex > -1) ? Either.Right(gameIndex) : Either.Left("Game not found");
+    return (gameIndex > -1) ? Either.Right(gameIndex) : Either.Left([pubMessage("Game not found")]);
 }
 
 //makes sure game is ok to start
@@ -53,7 +57,7 @@ const gameFull = function(game) {
 const getUser = function(channel, handle) {
     return getGame(channel).chain(function(game) {
         const player = R.find(R.propEq('handle', handle))(game.players);
-        return (player) ? Either.Right(player) : Either.Left("Player not found");
+        return (player) ? Either.Right(player) : Either.Left([pubMessage("Player not found")]);
     });
 }
 
@@ -105,4 +109,11 @@ exports.sendDm = function(channel, handle, message) {
         user.conversation.say(message);
         return "Dm sent";
     })
+}
+
+exports.getHandle = function(channel, userId) {
+    return getGame(channel).chain(function(game) {
+        const player = R.find(R.propEq('id', userId))(game.players);
+        return (player) ? Either.Right(player.handle) : Either.Left([pubMessage("Player not found")]);
+    });
 }
