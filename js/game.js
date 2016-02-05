@@ -266,8 +266,8 @@ exports.start = actions.start;
 // =============================================================================
 let games = [];
 
-games.push(setupGame(setupMatch([
-    'tyler',
-    'kevinwelcher',
-    'trevor'
-], 'C0L6FJ4F3')))
+// games.push(setupGame(setupMatch([
+//     'tyler',
+//     'kevinwelcher',
+//     'trevor'
+// ], 'C0L6FJ4F3')))
