@@ -28,13 +28,23 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
     const command = R.head(split).substring(1);
     const params = R.drop(1, split);
 
-    Slack.getUserInfo(userId, function(data, response) {
-        const user = (data.user) ? data.user.name : null
-        if(user) {
-            const responses = Game.processAction(user, channel, command, params);
-            if(responses.publicMsg) bot.reply(message, responses.publicMsg);
-        } else {
-            reportError(bot, message.channel, "couldn't get a user from slack");
-        }
-    });
+    switch(command) {
+        case "start":
+            Slack.newGame(channel);
+            bot.reply(message, "Game created, say !join to join");
+            break;
+        case "check":
+            console.log(Slack.checkState());
+            break;
+        default:
+            Slack.getUserInfo(userId, function(data, response) {
+            const user = (data.user) ? data.user.name : null
+            if(user) {
+                const responses = Game.processAction(user, channel, command, params);
+                if(responses.publicMsg) bot.reply(message, responses.publicMsg);
+            } else {
+                reportError(bot, message.channel, "couldn't get a user from slack");
+            }
+        });
+    }
 });
