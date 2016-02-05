@@ -50,6 +50,18 @@ const gameFull = function(game) {
     return R.propSatisfies(function(x) { x.length >= 4}, 'players', game);
 }
 
+const getUser = function(channel, handle) {
+    return getGame(channel).chain(function(game) {
+        const player = R.find(R.propEq('handle', handle))(game.players);
+        return (player) ? Either.Right(player) : Either.Left("Player not found");
+    });
+}
+
+//takes in a slack user id, and a callback function(data, response)
+const getUserInfoFromSlack = function(userId, callback) {
+    client.get(getUrl('users.info', {user: userId}), callback);
+}
+
 exports.checkState = function() {
     return games;
 }
@@ -62,12 +74,21 @@ exports.endGame = function(channel) {
     games = R.reject(R.propEq('channel', channel))(games)
 }
 
+//TODO: KEVIN HALP. THIS FUNCTION IS OUT OF CONTROL. NEEDS MONADS DEPERATELY.
 exports.addPlayer = function(bot, channel, message) {
     return getGameIndex(channel).map(function(gameIndex) {
-        getUserInfo(message.user, function(data, response) {
+        getUserInfoFromSlack(message.user, function(data, response) {
             const user = (data.user) ? data.user.name : null
             if(user) {
-                R.adjust(function(game) {R.merge({players: R.append(R.merge({id: message.user, handle: user, conversation: bot.startPrivateConverstation(message)}, defaultPlayerState), game.players)})}, gameIndex)(games)
+                bot.startPrivateConversation(message, function(err, conversation) {
+                    if(err) {
+                        bot.say({channel: channel, text: "couldn't start a dm"});
+                    } else {
+                        const game = games[gameIndex];
+                        games = R.adjust(R.merge(_, { players: R.append(R.merge(defaultPlayerState, { id: message.user, handle: user, conversation: conversation }), game.players) }), gameIndex, games);
+                        exports.sendDm(channel, user, "you're in!");
+                    }
+                });
             } else {
                 bot.say({channel: channel, text: "couldn't find user"});
             }
@@ -76,7 +97,12 @@ exports.addPlayer = function(bot, channel, message) {
     });
 }
 
-//takes in a slack user id, and a callback function(data, response)
-exports.getUserInfo = function(userId, callback) {
-    client.get(getUrl('users.info', {user: userId}), callback);
+exports.sendDm = function(channel, handle, message) {
+    return getUser(channel, handle).bimap(function(error) {
+        return error;
+    },
+    function(user) {
+        user.conversation.say(message);
+        return "Dm sent";
+    })
 }
