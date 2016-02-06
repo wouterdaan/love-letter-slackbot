@@ -7,6 +7,36 @@ const _ = R.__;
 const Either = require('data.either');
 
 
+// =============================================================================
+// STUFF I WISH RAMDA HAD
+// =============================================================================
+const mapWhere = R.curry((pred, fn, list) =>
+    R.map(x => pred(x) ? fn(x) : x, list));
+
+// =============================================================================
+// LENSES
+// =============================================================================
+const L = {}
+
+L.discard = R.lensProp('discard');
+L.deck = R.lensProp('deck');
+L.hand = R.lensProp('hand');
+L.players = R.lensProp('players');
+L.first = R.lensIndex(0);
+L.second = R.lensIndex(1);
+// array -> lens player
+L.find = R.curry((prop, name) =>
+    R.lens(
+        R.find(R.whereEq(R.objOf(prop, name))),
+        R.curry((x, l) => mapWhere(R.whereEq(R.objOf(prop, name)), R.always(x), l))
+    ));
+
+L.player = L.find('username');
+L.game = L.find('channel');
+
+L.activeHand = R.compose(L.players, L.hand);
+L.activePlayer = R.compose(L.players, L.first);
+
 
 // =============================================================================
 // DEFAULT STATES
@@ -121,13 +151,60 @@ const getGame = channel => {
 
 //+ getPlayer : game -> username -> Either pubMessage user
 const getPlayer = R.curry((username, game) => {
-    var user = R.find(R.whereEq({ username: username }), game.players);
+    const user = R.find(R.whereEq({ username: username }), game.players);
     return user ?
         Either.Right(user) :
         Either.Left(pubMessage(`@${username} is not in this game`))
 });
 
+//+ cardPred : cardState -> boolean
 const cardPred = R.curry((val, card) => card.value == val || card.name == val);
+
+//+ discardCard : gameState -> username -> cardValue -> gameState
+const discardCard = R.curry((username, cardValue, game) => {
+    const discardedCard = cards.find(cardPred(cardValue));
+
+    const removeCard = R.reject(cardPred(cardValue));
+
+    const playerTransform = R.over(L.hand, removeCard);
+
+    return R.compose(
+        R.over(L.player(username), playerTransform),
+        R.over(L.discard, prepend(discardedCard))
+    )(game)
+});
+
+//+ draw : gameState -> username -> Either err gameState
+const drawCard = R.curry((username, game) => {
+    var topOfDeck = R.compose(L.deck, L.first);
+
+    var firstCard = R.view(topOfDeck, game);
+
+    const playerTransform = R.over(L.hand, R.append(firstCard));
+
+    return R.compose(
+        R.over(L.player(name), playerTransform),
+        R.over(L.deck, R.tail)
+    )(game);
+});
+
+const firstPlayerSetup = (game) =>
+    var username = R.view(L.activePlayer, game).username;
+    return R.compose(
+        drawCard(username)
+    )(game);
+};
+
+//+ userSort : [userState] -> [userState]
+const userSort = R.sort((a, b) =>
+    a.stillInGame === b.stillInGame ? 0 :
+    a.stillInGame && !b.stillInGame ? -1 : 1);
+
+//+ headToTail : list -> list
+const headToTail = (list) => R.append(R.head(list), R.tail(list));
+
+//+ stepUsers : gameState -> gameState
+const stepUsers = R.over(L.players, R.compose(headToTail, R.sort(userSort)));
 
 // =============================================================================
 // TO STRINGS
@@ -162,7 +239,6 @@ const actions = {
         return pubMessage(`https://github.com/tylerjromeo/love-letter-slackbot/blob/master/README.md`);
     },
 
-    // This needs to be global and not an action
     // Either err game -> username -> channel -> usernames -> Either err [message]
     start: function(game, username, channel, usernames) {
         return game
@@ -242,7 +318,18 @@ const actions = {
         .map(() => {
             let messages = [
                 pubMessage(`Discarding a card ${selectedCard.merge().name}`)
+                // privMessage(nextUser.name, 'Next user card value and turn')
             ];
+
+            const stepGame = R.compose(
+
+                stepUsers,
+                discardCard(activePlayer.merge().username, selectedCard.merge().value)
+            );
+
+            game.map(_game => {
+                games = R.over(L.game(_game.channel), stepGame, games)
+            });
 
             return messages;
         })
@@ -265,7 +352,7 @@ exports.processAction = R.curry(function(username, channel, command /*, ...args 
     const res = action ? action.apply(null, _args) :
                          pubMessage('No action found, Boop!');
 
-    // console.log(res);
+    getGame(channel).map(R.tap(console.log.bind(console)));
 
     const arrayify = val => R.isArrayLike(val) ? val : [val];
 
