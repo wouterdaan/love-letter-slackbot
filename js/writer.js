@@ -5,7 +5,10 @@ var R = require('ramda');
 // =======================
 // Left
 // =======================
-function Left(value) { this.value = value; };
+function Left(value) {
+    this.value = value;
+    this.log = [value];
+};
 Left.of = function(value) { return new Left(value); };
 Left.prototype.of = function(value) { return new Left(value); };
 
