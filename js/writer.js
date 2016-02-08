@@ -1,33 +1,56 @@
-const R = require('ramda');
+'use strict';
 
-function Writer(value, state) {
+var R = require('ramda');
+
+// =======================
+// Left
+// =======================
+function Left(value) { this.value = value; };
+Left.of = function(value) { return new Left(value); };
+Left.prototype.of = function(value) { return new Left(value); };
+
+Left.prototype.map = function(fn) { return this; };
+
+Left.prototype.ap = function(m) { return this; };
+
+Left.prototype.chain = function(fn) { return this; };
+
+
+// =======================
+// Righter
+// =======================
+function Righter(value, log) {
     this.value = value;
-    this.state = state;
+    this.log = log;
 };
 
-Writer.prototype.of = function(value) {
-    return new Writer(value, []);
+
+Righter.of = function(value, log) {
+    return new Righter(value, log || []);
+};
+Righter.prototype.of = function(value, log) {
+    return new Righter(value, log || []);
 };
 
-Writer.of = function(value) {
-    return new Writer(value, []);
+
+Righter.prototype.map = function(fn) {
+    return this.chain(x => this.of(fn(x)[0], fn(x)[1]));
 };
 
-Writer.prototype.map = function(fn) {
-    var res = fn(this.value, this.state);
-    return this.of(res[0], res[1]);
-};
 
-Writer.prototype.chain = function(fn) {
-    return this.map(fn).merge();
-};
-
-Writer.prototype.ap = function(m) {
+Righter.prototype.ap = function(m) {
     return m.map(this.value);
 };
 
-Writer.prototype.merge = function() {
-    return [this.value, this.state];
+
+Righter.prototype.chain = function(fn) {
+    var res = fn(this.value);
+    return res instanceof Righter ?
+            this.of(res.value, R.flatten(this.log.concat(res.log))) :
+            res;
 };
 
-Writer.of(R.add).ap(Writer.of(1)).ap(Writer.of(2))
+
+exports.Left = Left;
+exports.Righet = Righter;
+exports.of = Righter.of;

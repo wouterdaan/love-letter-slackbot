@@ -5,6 +5,9 @@ const R = require('ramda');
 const cards = require('./cards.json');
 const _ = R.__;
 const Either = require('data.either');
+const Writer = require('./writer');
+const Righter = Writer.Righter;
+const Left = Writer.Left;
 
 
 // =============================================================================
@@ -188,7 +191,7 @@ const drawCard = R.curry((username, game) => {
     )(game);
 });
 
-const firstPlayerSetup = (game) =>
+const firstPlayerSetup = (game) => {
     var username = R.view(L.activePlayer, game).username;
     return R.compose(
         drawCard(username)
