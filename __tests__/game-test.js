@@ -24,7 +24,7 @@ describe('start', function() {
         expect(log).toEqual([
             pubMessage(`The game has started! @${players[0]}, you\'re up first.`),
             privMessage(players[0],'your hand is:'),
-            privMessage(players[0],'(1) Guard: Name a non-Gaurd card and choose another player. If that player has that card, he or she is out of the round.')
+            privMessage(players[0],'(1) Guard: Name a non-Guard card and choose another player. If that player has that card, he or she is out of the round.')
         ])
     });
 });

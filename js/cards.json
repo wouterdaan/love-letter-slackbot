@@ -3,7 +3,7 @@
         "value": 1,
         "name": "Guard",
         "count": 5,
-        "description": "Name a non-Gaurd card and choose another player. If that player has that card, he or she is out of the round."
+        "description": "Name a non-Guard card and choose another player. If that player has that card, he or she is out of the round."
     },
     {
         "value": 2,
