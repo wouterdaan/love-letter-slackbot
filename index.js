@@ -30,6 +30,7 @@ const sendMessage = function(bot, channel, slackMessage, message) {
 }
 
 const sendMessages = R.curry(function(bot, channel, slackMessage, messages) {
+    console.log(messages);
     R.forEach(function(m) { sendMessage(bot, channel, slackMessage, m) }, messages);
 })
 

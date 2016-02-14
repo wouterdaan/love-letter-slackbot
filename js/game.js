@@ -4,7 +4,6 @@ const _shuffle = require('shuffle-array');
 const R = require('ramda');
 const cards = require('./cards.json');
 const _ = R.__;
-const Either = require('data.either');
 const Writer = require('./writer');
 const Righter = Writer.Righter;
 const Left = Writer.Left;
@@ -34,12 +33,12 @@ L.find = R.curry((prop, name) =>
         R.curry((x, l) => mapWhere(R.whereEq(R.objOf(prop, name)), R.always(x), l))
     ));
 
-L.player = L.find('username');
+L.player = name => R.compose(L.players, L.find('username', name));
 L.game = L.find('channel');
+L.value = L.find('value');
+L.name = L.find('name');
 
-L.activeHand = R.compose(L.players, L.hand);
-L.activePlayer = R.compose(L.players, L.first);
-
+L.playerHand = name => R.compose(L.players, L.player(name), L.hand);
 
 // =============================================================================
 // DEFAULT STATES
@@ -144,20 +143,20 @@ const getActivePlayers = R.compose(
 //+ getActivePlayer : gameState -> player
 const getActivePlayer = R.compose(R.head, getActivePlayers);
 
-//+ getGame : channel -> Either pubMessage gameState
+//+ getGame : channel -> Righter pubMessage gameState
 const getGame = channel => {
     var game = R.find(R.whereEq({ channel: channel }), games);
     return game ?
-        Either.Right(game) :
-        Either.Left(pubMessage('Game does not exist in this channel'));
+        Righter.of(game) :
+        Left.of(pubMessage('Game does not exist in this channel'));
 }
 
-//+ getPlayer : game -> username -> Either pubMessage user
+//+ getPlayer : game -> username -> Righter pubMessage user
 const getPlayer = R.curry((username, game) => {
     const user = R.find(R.whereEq({ username: username }), game.players);
     return user ?
-        Either.Right(user) :
-        Either.Left(pubMessage(`@${username} is not in this game`))
+        Righter.of(user) :
+        Left(pubMessage(`@${username} is not in this game`))
 });
 
 //+ cardPred : cardState -> boolean
@@ -171,32 +170,31 @@ const discardCard = R.curry((username, cardValue, game) => {
 
     const playerTransform = R.over(L.hand, removeCard);
 
+    const playerDiscard = game => [
+        R.over(L.player(username), playerTransform, game),
+        pubMessage(`${username} has discarded a ${discardedCard}`)
+    ]
+
     return R.compose(
-        R.over(L.player(username), playerTransform),
-        R.over(L.discard, prepend(discardedCard))
-    )(game)
+        playerDiscard,
+        R.map(R.over(L.discard, R.prepend(discardedCard)))
+    )(Righter.of(game))
 });
 
-//+ draw : gameState -> username -> Either err gameState
+//+ draw : gameState -> username -> [gameState, message]
 const drawCard = R.curry((username, game) => {
     var topOfDeck = R.compose(L.deck, L.first);
 
     var firstCard = R.view(topOfDeck, game);
 
-    const playerTransform = R.over(L.hand, R.append(firstCard));
+    const addCardToPlayer = R.over(L.hand, R.append(firstCard));
 
     return R.compose(
-        R.over(L.player(name), playerTransform),
-        R.over(L.deck, R.tail)
+        R.pair(_, privMessage(username, 'You recived a ${cardToString(firstCard)}: ')),
+        R.over(L.player(name), addCardToPlayer),
+        R.over(L.deck, burnCard)
     )(game);
 });
-
-const firstPlayerSetup = (game) => {
-    var username = R.view(L.activePlayer, game).username;
-    return R.compose(
-        drawCard(username)
-    )(game);
-};
 
 //+ userSort : [userState] -> [userState]
 const userSort = R.sort((a, b) =>
@@ -237,110 +235,57 @@ const gameToString = g => '';
 // ACTIONS
 // =============================================================================
 const actions = {
-    // _ -> Either _ pubMessage
-    help: function() {
-        return Righter.of({}, [pubMessage(`https://github.com/tylerjromeo/love-letter-slackbot/blob/master/README.md`)]);
+    // Righter err [gameState, messages] -> username -> Righter err [gameState, messages]
+    look: function(gameState, user) {
+        const message = privMessage(user.username, [
+            handToString(user.hand),
+            deckToString(gameState),
+            discardToString(gameState)
+        ].join('\n'));
+
+        return Righter.tell(message);
     },
 
-    // Either err game -> username -> channel -> usernames -> Either err [message]
-    start: function(game, username, channel, usernames) {
-        return game
-            .bimap(
-                R.always(true),
-                R.always(pubMessage('A game already exists in this channel'))
-            )
-            .swap()
-            .chain(() => {
-                const newGame = setupGame(setupMatch(usernames, channel));
-                games.push(newGame);
-
-                const crntPlayer = getActivePlayer(newGame);
-                const handString = handToString(crntPlayer.hand);
-
-                return Either.Right([
-                    pubMessage(`The game has started! @${crntPlayer.username}, your up first.`),
-                    privMessage(crntPlayer.username, handString)
-                ])
-            });
+    // gameState -> pubMessage
+    score: function(gameState) {
+        return Righter.tell(pubMessage(gameState.players.map(playerToString).join('\n')));
     },
 
-    // Either err game -> username -> Either err privMessage
-    look: function(game, username) {
-        const user = game.chain(getPlayer(username));
-
-        return R.sequence(Either.Right, [
-            user.map(R.compose(handToString, R.prop('hand'))),
-            game.map(deckToString),
-            game.map(discardToString)
-        ]).map(R.compose(privMessage(username), R.join('\n')));
-    },
-
-    // Either err game -> pubMessage
-    score: R.map(R.compose(pubMessage, R.join('\n'), R.map(playerToString), R.prop('players'))),
-
-    // Either err game -> pubMessage
+    // game -> pubMessage
     abort: function(game, username, channel) {
-        return game.map(function(_) {
-            games = R.filter(R.whereEq({ channel: channel }), games);
-            return pubMessage('Game disbanded.');
-        });
+        games = R.filter(R.whereEq({ channel: channel }), games);
+        return Righter.tell(pubMessage('Game disbanded.'));
     },
 
-    // Either err game -> pubMessage
-    whosturn: R.map(function(game) {
-        const player = getActivePlayer(game);
-        return pubMessage(`It is ${player.username}'s turn'`);
-    }),
+    // game -> pubMessage
+    whosturn: function(game) {
+        return Righter.tell(pubMessage(`It is ${getActivePlayer(game)}'s turn'`));
+    },
 
-    // Either err game -> username -> pubMessage
-    discard: function(game, username, channel, args) {
-        const player = game.chain(getPlayer(username));
-        const activePlayer = game.map(getActivePlayer)
+    // game -> username -> pubMessage
+    discard: function(game, player, channel, args) {
+        const activePlayer = getActivePlayer(game);
+        if (activePlayer !== player)
+            return Left.of(pubMessage('It is not your turn yet'));
 
-        const selectedCard = player.chain(R.compose(
-            (c) => !!c ? Either.Right(c) : Either.Left(pubMessage('Please supply a card name or value to discard')),
-            R.find(cardPred(args[0])),
-            R.prop('hand')
-        ));
+        const selectedCard = R.find(cardPred(args[0]), player.hand);
+        if (!selectedCard)
+            return Left.of(pubMessage('Please supply a card name or value to discard'));
 
-        const isSamePlayer = player.isEqual(activePlayer) ?
-                Either.Right(null) :
-                Either.Left(pubMessage('It is not your turn yet'));
+        if (game.pendingAction)
+            return Left.of(pubMessage('There is a pending card that needs to be acted on'));
 
-        const hasPendingAction = game.chain((g) =>
-            !g.pendingAction ?
-                Either.Right(null) :
-                Either.Left(pubMessage('There is a pending card that needs to be acted on')));
+        const stepGame = R.compose(
+            stepUsers,
+            discardCard(activePlayer.username, selectedCard.value)
+        );
 
-        return R.sequence(Either.Right, [
-            game,
-            selectedCard,
-            isSamePlayer,
-            hasPendingAction
-        ])
-        .map(() => {
-            let messages = [
-                pubMessage(`Discarding a card ${selectedCard.merge().name}`)
-                // privMessage(nextUser.name, 'Next user card value and turn')
-            ];
+        games = R.over(L.game(game.channel), stepGame, games);
 
-            const stepGame = R.compose(
 
-                stepUsers,
-                discardCard(activePlayer.merge().username, selectedCard.merge().value)
-            );
 
-            game.map(_game => {
-                games = R.over(L.game(_game.channel), stepGame, games)
-            });
-
-            return messages;
-        })
+        return Righter.tell(messages);
     }
-};
-
-const cardActions = {
-
 };
 
 // =============================================================================
@@ -350,23 +295,38 @@ const cardActions = {
 exports.processAction = R.curry(function(username, channel, command /*, ...args */) {
     const args = Array.prototype.slice.call(arguments, 3);
     const action = actions[command];
-    const _args = [getGame(channel), username, channel, ...args];
 
-    const res = action ? action.apply(null, _args) :
-                         pubMessage('No action found, Boop!');
+    const game = R.find(R.whereEq({ channel: channel }), games);
+    if (!game) return Left.of(pubMessage('No game exists in this channel yet'));
+    if (!action) return Left.of(pubMessage('No action found, Boop!'));
 
-    getGame(channel).map(R.tap(console.log.bind(console)));
+    const invokingUser = R.find(R.whereEq({ username: username }), game.players);
+    if (!invokingUser) return Left.of(pubMessage('You are not a part of this game ${username}!'));
 
-    const arrayify = val => R.isArrayLike(val) ? val : [val];
-
-    return R.isArrayLike(res) ? Either.Right(res) :
-                      res.msg ? Either.Right(arrayify(res)) :
-                                res.bimap(arrayify, arrayify);
+    return action.apply(null, [game, invokingUser, channel, ...args]);
 });
 
-exports.start = actions.start;
-exports.help = actions.help;
+// _ -> Righter _ [_, message]
+exports.help = function() {
+    return Righter.tell(pubMessage(`https://github.com/tylerjromeo/love-letter-slackbot/blob/master/README.md`));
+};
 
+// username -> channel -> [username] -> Righter [err, messages] [gameState, messages]
+exports.start = function(username, channel, usernames) {
+    if (R.find(R.whereEq({ channel: channel }), games))
+        return Left.of(pubMessage('Game already exists'))
+
+    const newGame = setupGame(setupMatch(usernames, channel));
+    games.push(newGame);
+
+    const crntPlayer = getActivePlayer(newGame);
+    const handString = handToString(crntPlayer.hand);
+
+    return Righter.of(newGame, [
+        pubMessage(`The game has started! @${crntPlayer.username}, you're up first.`),
+        privMessage(crntPlayer.username, handString)
+    ]);
+};
 
 // =============================================================================
 // GAME STATE
