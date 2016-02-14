@@ -218,11 +218,8 @@ const discardToString = g =>
         `There are no cards in the discard pile`
 
 
-const handToString = hand => {
-    return `
-        Your hand is:
-        ${hand.map(cardToString).join('\n')}
-    `;
+const handToStrings = hand => {
+    return R.prepend('your hand is:', hand.map(cardToString))
 };
 
 const deckToString = g => `There are ${g.deck.length} cards left in the deck`;
@@ -237,13 +234,12 @@ const gameToString = g => '';
 const actions = {
     // Righter err [gameState, messages] -> username -> Righter err [gameState, messages]
     look: function(gameState, user) {
-        const message = privMessage(user.username, [
-            handToString(user.hand),
-            deckToString(gameState),
-            discardToString(gameState)
-        ].join('\n'));
+        const messages = R.flatten(
+            R.prepend(handToStrings(user.hand),
+                deckToString(gameState),
+                discardToString(gameState)));
 
-        return Righter.tell(message);
+        return Righter.tell(R.map(m => privMessage(user.username, m), messages));
     },
 
     // gameState -> pubMessage
@@ -320,12 +316,13 @@ exports.start = function(username, channel, usernames) {
     games.push(newGame);
 
     const crntPlayer = getActivePlayer(newGame);
-    const handString = handToString(crntPlayer.hand);
+    const handStrings = handToStrings(crntPlayer.hand);
 
-    return Righter.of(newGame, [
-        pubMessage(`The game has started! @${crntPlayer.username}, you're up first.`),
-        privMessage(crntPlayer.username, handString)
-    ]);
+    return R.compose(
+        R.curry(Righter.of)(newGame),
+        R.prepend(pubMessage(`The game has started! @${crntPlayer.username}, you're up first.`)),
+        R.map(m => privMessage(crntPlayer.username, m))
+    )(handStrings);
 };
 
 // =============================================================================
