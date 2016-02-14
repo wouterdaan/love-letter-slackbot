@@ -70,7 +70,13 @@ const getUserInfoFromSlack = function(userId, callback) {
 }
 
 exports.newGame = function(channel) {
-    games = R.append(R.merge(defaultGameState, {channel: channel}))(games)
+    //if get game gives us something, then the game already exists so we shoudl fail
+    if(getGame(channel).isRight) {
+        return Either.Left([pubMessage('Game already exists in this channel!')]);
+    } else {
+        games = R.append(R.merge(defaultGameState, {channel: channel}))(games)
+        return Either.Right([pubMessage('Game created, say !join to join')]);
+    }
 }
 
 exports.endGame = function(channel) {

@@ -30,6 +30,7 @@ const sendMessage = function(bot, channel, slackMessage, message) {
 }
 
 const sendMessages = R.curry(function(bot, channel, slackMessage, messages) {
+    console.log("MESSAGES HERE")
     console.log(messages);
     R.forEach(function(m) { sendMessage(bot, channel, slackMessage, m) }, messages);
 })
@@ -52,8 +53,7 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
 
     switch(command) {
         case 'start':
-            Slack.newGame(channel);
-            bot.reply(message, 'Game created, say !join to join');
+            Slack.newGame(channel).bimap(send, send);
             break;
         case 'join':
             Slack.addPlayer(bot, channel, message, function(result) { result.bimap(send, send) });

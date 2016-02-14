@@ -297,11 +297,11 @@ exports.processAction = R.curry(function(username, channel, command /*, ...args 
     const action = actions[command];
 
     const game = R.find(R.whereEq({ channel: channel }), games);
-    if (!game) return Left.of(pubMessage('No game exists in this channel yet'));
-    if (!action) return Left.of(pubMessage('No action found, Boop!'));
+    if (!game) return Left.of([pubMessage('No game exists in this channel yet')]);
+    if (!action) return Left.of([pubMessage('No action found, Boop!')]);
 
     const invokingUser = R.find(R.whereEq({ username: username }), game.players);
-    if (!invokingUser) return Left.of(pubMessage('You are not a part of this game ${username}!'));
+    if (!invokinguser) return Left.of([pubMessage('You are not a part of this game ${username}!')]);
 
     return action.apply(null, [game, invokingUser, channel, ...args]);
 });
