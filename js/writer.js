@@ -55,5 +55,5 @@ Righter.prototype.chain = function(fn) {
 
 
 exports.Left = Left;
-exports.Righet = Righter;
+exports.Righter = Righter;
 exports.of = Righter.of;

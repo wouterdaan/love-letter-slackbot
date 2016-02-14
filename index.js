@@ -3,7 +3,7 @@
 const R = require('ramda');
 const Botkit = require('botkit');
 const Game = require('./js/game');
-const Slack = require('./js/slack')
+const Slack = require('./js/slack');
 
 const controller = Botkit.slackbot();
 const bot = controller.spawn({
@@ -47,6 +47,7 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
     const params = R.drop(1, split);
 
     const send = sendMessages(bot, channel, message);
+    const sendRighter = righter => sendMessages(bot, channel, message, righter.log);
 
     switch(command) {
         case 'start':
@@ -59,22 +60,22 @@ controller.hears(["^!.+"], ["ambient"], function(bot, message) {
         case 'begin':
             if(Slack.okToStartGame(channel)) {
                 Slack.getHandles(channel)
-                    .chain(function(handles) {
-                        return Game.processAction(R.head(handles), channel, 'start', handles);
+                    .map(function(handles) {
+                        return Game.start(R.head(handles), channel, handles);
                     })
-                    .bimap(send, send);
+                    .bimap(send, sendRighter);
             } else {
                 bot.reply(message, 'Game must have 2-4 players');
             }
             break;
         case 'help':
-            Game.processAction('', channel, command, params).bimap(send, send);
+            sendRighter(Game.help());
             break;
         default:
             Slack.getHandle(channel, userId)
                 .chain(function(handle) {
                     return Game.processAction(handle, channel, command, params);
                 })
-                .bimap(send, send);
+                .bimap(send, sendRighter);
     }
 });

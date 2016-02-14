@@ -239,7 +239,7 @@ const gameToString = g => '';
 const actions = {
     // _ -> Either _ pubMessage
     help: function() {
-        return pubMessage(`https://github.com/tylerjromeo/love-letter-slackbot/blob/master/README.md`);
+        return Righter.of({}, [pubMessage(`https://github.com/tylerjromeo/love-letter-slackbot/blob/master/README.md`)]);
     },
 
     // Either err game -> username -> channel -> usernames -> Either err [message]
@@ -365,6 +365,7 @@ exports.processAction = R.curry(function(username, channel, command /*, ...args 
 });
 
 exports.start = actions.start;
+exports.help = actions.help;
 
 
 // =============================================================================
